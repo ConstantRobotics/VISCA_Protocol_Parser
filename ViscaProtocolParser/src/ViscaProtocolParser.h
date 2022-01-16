@@ -1,8 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <string>
 #include "ViscaProtocolParserDataStructures.h"
 
 
+namespace  cr
+{
 namespace visca
 {
     /**
@@ -23,7 +26,7 @@ namespace visca
         ~ViscaProtocolParser();
 
         /**
-         * @brief Method to encode COMMAND or ENQUIRY COMMAND.
+         * @brief Encode COMMAND or ENQUIRY COMMAND.
          * @param command_ID ID of command.
          * @param packet Pointer to packet data buffer. Should be >= 24.
          * @param packet_size Output packet size.
@@ -40,7 +43,7 @@ namespace visca
          * @param param_10 Parameter 10. The meanimg depends from ID of command.
          * @return TRUE if the commend was encoded or FALSE in case any errors.
          */
-        bool Encode_Command(
+        bool encodeCommand(
             visca::ViscaPackets command_ID,
             uint8_t* packet,
             uint32_t& packet_size,
@@ -72,7 +75,7 @@ namespace visca
          * @param param_10 Parameter 10. The meanimg depends from ID of command. 
          * @return visca::ViscaPackets type.
          */
-        visca::ViscaPackets Decode_Data(
+        visca::ViscaPackets decodeData(
             uint8_t next_byte,
             uint32_t camera_address,
             uint32_t& param_1,
@@ -86,6 +89,12 @@ namespace visca
             uint32_t& param_9,
             uint32_t& param_10);
 
+        /**
+         * @brief GetVersion
+         * @return String of current calss version.
+         */
+        static std::string getVersion();
+
     private:
 
         uint32_t input_data_counter;
@@ -93,7 +102,7 @@ namespace visca
         visca::ViscaPackets input_packet_type;
         visca::ViscaPackets last_encoded_command;
 
-        visca::ViscaPackets Decode_Reply(
+        visca::ViscaPackets decodeReply(
             uint8_t* packet_data,
             uint32_t packet_size,
             uint32_t& param_1,
@@ -108,4 +117,5 @@ namespace visca
             uint32_t& param_10);
             
     };
+}
 }

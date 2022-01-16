@@ -35,7 +35,7 @@ int main(void)
     // Init variables.
     uint8_t packet_data[128];
     memset(packet_data, 0, 128);
-    visca::ViscaProtocolParser visca_protocol_parser;
+    cr::visca::ViscaProtocolParser visca_protocol_parser;
     uint32_t param_1 = 0;
     uint32_t param_2 = 0;
     uint32_t param_3 = 0;
@@ -85,7 +85,7 @@ int main(void)
 
         // Encode command.
         uint32_t packet_size = 0;
-        visca_protocol_parser.Encode_Command(visca::ViscaPackets::INQUIRY_CAM_ZoomPosInq, packet_data, packet_size, 1, 1);
+        visca_protocol_parser.encodeCommand(cr::visca::ViscaPackets::INQUIRY_CAM_ZoomPosInq, packet_data, packet_size, 1, 1);
 
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
@@ -104,21 +104,21 @@ int main(void)
         {
             for (int i = 0; i < number_of_bytes; ++i)
             {
-                switch(visca_protocol_parser.Decode_Data(packet_data[i], 1, param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8, param_9, param_10))
+                switch(visca_protocol_parser.decodeData(packet_data[i], 1, param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8, param_9, param_10))
                 {
-                case visca::ViscaPackets::ACKNOWLEDGE:
+                case cr::visca::ViscaPackets::ACKNOWLEDGE:
                     std::cout << "ACKNOWLEDGE" << std::endl;
                     break;
-                case visca::ViscaPackets::COMPLETION_COMMANDS:
+                case cr::visca::ViscaPackets::COMPLETION_COMMANDS:
                     std::cout << "COMPLETION_COMMANDS" << std::endl;
                     break;
-                case visca::ViscaPackets::COMPLETION_INQUIRY:
+                case cr::visca::ViscaPackets::COMPLETION_INQUIRY:
                     std::cout << "COMPLETION_INQUIRY" << std::endl;
                     break;
-                case visca::ViscaPackets::REPLY_CAM_ZoomPos:
+                case cr::visca::ViscaPackets::REPLY_CAM_ZoomPos:
                     std::cout << "ZOOM POSITION" << std::endl;
                     break;
-                define:
+                default:
                     break;
                 }
             }

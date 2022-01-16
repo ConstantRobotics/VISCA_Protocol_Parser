@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
 
-
+namespace cr
+{
 namespace visca
 {
     // Enum of VISCA packets type.
@@ -895,6 +896,7 @@ namespace visca
         REPLY
 
     };
+}
 }
 
 

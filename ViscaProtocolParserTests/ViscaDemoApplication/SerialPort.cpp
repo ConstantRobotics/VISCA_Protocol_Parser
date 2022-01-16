@@ -168,7 +168,7 @@ bool clib::SerialPort::Open(
 		return false;
 	}
 
-	Cport = open(comport_file, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    Cport = ::open(comport_file, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (Cport == -1)
 		return false;
 
