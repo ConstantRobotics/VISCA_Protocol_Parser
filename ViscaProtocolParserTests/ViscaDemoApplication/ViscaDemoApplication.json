@@ -2,6 +2,7 @@
     "Params":
     {
         "videoSourceInitString":"rtsp://192.168.1.108:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif",
+        "cameraAddress":1,
         "serialPortName":"\\\\.\\COM3",
         "serialPortBaudrate":9600,
         "waitTimeoutMs":20,

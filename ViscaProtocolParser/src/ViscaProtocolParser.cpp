@@ -3695,10 +3695,8 @@ cr::visca::ViscaPackets cr::visca::ViscaProtocolParser::decodeReply(
     case cr::visca::ViscaPackets::INQUIRY_CAM_ZoomPosInq:
         if (packet_size != 7)
             return cr::visca::ViscaPackets::UNDEFINED_PACKET;
-        param_1 = packet_data[2] & 0x0F;
-        param_2 = packet_data[3] & 0x0F;
-        param_3 = packet_data[4] & 0x0F;
-        param_4 = packet_data[5] & 0x0F;
+        param_1 = (uint32_t)(((input_packet_data[2] << 4) & 0xF0) | (input_packet_data[3] & 0x0F)) * 256 +
+                  (uint32_t)(((input_packet_data[4] << 4) & 0xF0) | (input_packet_data[5] & 0x0F));
         return cr::visca::ViscaPackets::REPLY_CAM_ZoomPos;
 
     case cr::visca::ViscaPackets::INQUIRY_CAM_DZoomModeInq:

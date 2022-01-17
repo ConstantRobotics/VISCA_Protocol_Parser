@@ -39,6 +39,8 @@ bool g_zoomTeleFlag = false;                // Zoom tele flag.
 bool g_zoomWideFlag = false;                // Zoom wide flag.
 bool g_focusFarFlag = false;                // Focus far flag.
 bool g_focusNearFlag = false;               // Focus near flag.
+std::atomic<uint32_t> g_inputZoomPos;       // Input zoom position.
+int g_cameraAddress = 1;                    // VISCA camera address.
 
 
 /**
@@ -109,6 +111,7 @@ int main(void)
 
     // Send initial commands.
     sendInitialCommands();
+    g_inputZoomPos.store(0);
 
     // Launch input data processing string.
     std::thread inputDataProcessingThread = std::thread(&inputDataProcessingThreadFunction);
@@ -137,41 +140,45 @@ int main(void)
         cv::putText(frame, "1 - Combine/Separate mode",
                     cv::Point(5, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_combineZoomModeFlag ? "COMBINE" : "SEPARATE",
-                    cv::Point(200, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                    cv::Point(280, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                     cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "2 - Digital zoom ON/OFF",
                     cv::Point(5, 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_digitalZoomModeFlag ? "ON" : "OFF",
-                    cv::Point(200, 40), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                    cv::Point(280, 40), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                     g_digitalZoomModeFlag ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "3 - Digital stabilization ON/OFF",
                     cv::Point(5, 65), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_digitalStabilizationFlag ? "ON" : "OFF",
-                    cv::Point(200, 65), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                    cv::Point(280, 65), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                     g_digitalStabilizationFlag ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "4 - Auto/Manual focus",
                     cv::Point(5, 90), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_autoFocusModeFlag ? "AUTO" : "MANUAL",
-                    cv::Point(200, 90), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
+                    cv::Point(280, 90), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "5 - Auto/Manual exposure",
                     cv::Point(5, 115), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_autoFocusModeFlag ? "AUTO" : "MANUAL",
-                    cv::Point(5, 115), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
+                    cv::Point(280, 115), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "6 - Defog ON/OFF",
                     cv::Point(5, 140), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, g_defogModeFlag ? "ON" : "OFF",
-                    cv::Point(5, 140), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                    cv::Point(280, 140), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                     g_defogModeFlag ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255));
 
         cv::putText(frame, "7 - Zoom tele/stop", cv::Point(5, 165), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, "8 - Zoom wide/stop", cv::Point(5, 190), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, "9 - Focus far/stop", cv::Point(5, 215), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
         cv::putText(frame, "0 - Focus near/stop", cv::Point(5, 240), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0));
+
+        // Show input zoom position.
+        cv::putText(frame, "ZOOM: " + std::to_string(g_inputZoomPos.load()),
+                    cv::Point(5, 265), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 
         // Show image.
         cv::imshow("VIDEO", frame);
@@ -221,6 +228,7 @@ bool loadAndInitParams()
         waitTimeoutMs = channelJson.at("waitTimeoutMs").get<int>();
         g_maxZoomPosition = channelJson.at("maxZoomPosition").get<int>();
         g_maxFocusPosition = channelJson.at("maxFocusPosition").get<int>();
+        g_cameraAddress = channelJson.at("cameraAddress").get<int>();
     }
     catch (const std::exception&)
     {
@@ -272,6 +280,12 @@ void inputDataProcessingThreadFunction()
     uint8_t inputData[maxInputDataSize];
     uint32_t param1, param2, param3, param4, param5, param6, param7, param8, param9, param10 = 0;
 
+    // Prepare zoom position inqury command.
+    uint8_t getZoomPosCommand[32];
+    uint32_t getZoomPosCommandSize = 0;
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::INQUIRY_CAM_ZoomPosInq,
+                                 getZoomPosCommand, getZoomPosCommandSize, g_cameraAddress);
+
     // Thread loop.
     while (true)
     {
@@ -284,14 +298,13 @@ void inputDataProcessingThreadFunction()
             switch(protocolParser.decodeData(inputData[i], 1, param1, param2, param3, param4,
                                              param5, param6, param7, param8, param9, param10))
             {
-            case cr::visca::ViscaPackets::ACKNOWLEDGE:
-                std::cout << "ACKNOWLEDGE" << std::endl;
-                break;
-            case cr::visca::ViscaPackets::COMPLETION_COMMANDS:
-                std::cout << "COMPLETION_COMMANDS" << std::endl;
-                break;
             case cr::visca::ViscaPackets::REPLY_CAM_ContinuousZoomPos:
                 std::cout << "DZOOM: " << param1 << "  ZOOM: " << param2 << std::endl;
+                g_inputZoomPos.store(param2);
+                break;
+            case cr::visca::ViscaPackets::REPLY_CAM_ZoomPos:
+                std::cout << "ZOOM: " << param1 << std::endl;
+                g_inputZoomPos.store(param1);
                 break;
             default: break;
             }
@@ -301,6 +314,10 @@ void inputDataProcessingThreadFunction()
         g_outputDataMutex.lock();
         if (g_outputDataSize > 0)
             g_serialPort.SendData(g_outputData, g_outputDataSize);
+        else
+            // Send zoom pos inquiry command.
+            g_serialPort.SendData(getZoomPosCommand, getZoomPosCommandSize);
+        g_outputDataSize = 0;
         g_outputDataMutex.unlock();
     }
 }
@@ -316,41 +333,55 @@ void sendInitialCommands()
     uint32_t dataSize = 0;
 
     // Set continious zoom position reply mode.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ContinuousZoomPosReply_On, serialData, dataSize, 1);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ContinuousZoomPosReply_On,
+                                 serialData, dataSize, g_cameraAddress);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Set continious zoom position reply interval (1 V-cycle).
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ZoomPosReplyIntervalTimeSet, serialData, dataSize, 1, 1);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ZoomPosReplyIntervalTimeSet,
+                                 serialData, dataSize, g_cameraAddress, 1);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Set 0 zoom position.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Direct, serialData, dataSize, 1, 0);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Direct,
+                                 serialData, dataSize, g_cameraAddress, 0);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Set zoom separate mode.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_DZoom_Separate_Mode, serialData, dataSize, 1);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_DZoom_Separate_Mode,
+                                 serialData, dataSize, g_cameraAddress);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    // Set continious focus position reply mode.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ContinuousFocusPosReply_On, serialData, dataSize, 1);
-    g_serialPort.SendData(serialData, dataSize);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    // Set continious focus position reply interval (1 V-cycle).
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_FocusPosReplyIntervalTimeSet, serialData, dataSize, 1, 1);
+    // Set OFF continious focus position reply mode.
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ContinuousFocusPosReply_Off,
+                                 serialData, dataSize, g_cameraAddress);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Disable stabilization.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Stabilizer_Off, serialData, dataSize, 1);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Stabilizer_Off,
+                                 serialData, dataSize, g_cameraAddress);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Set autofocus mode.
-    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Auto_Focus_On, serialData, dataSize, 1);
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Auto_Focus_On,
+                                 serialData, dataSize, g_cameraAddress);
+    g_serialPort.SendData(serialData, dataSize);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Set defog OFF.
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Defog_Off,
+                                 serialData, dataSize, g_cameraAddress);
+    g_serialPort.SendData(serialData, dataSize);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Set full auto exposure.
+    protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_AE_Full_Auto,
+                                 serialData, dataSize, g_cameraAddress);
     g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
@@ -402,128 +433,102 @@ void keyboardEventsProcessingFunction(int key)
     {
         // Encode command.
         g_outputDataMutex.lock();
-        if (stabilizationFlag)
-        {
+        if (g_digitalStabilizationFlag)
             protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Stabilizer_Off, g_outputData, g_outputDataSize, 1);
-            stabilizationFlag = false;
-            std::cout << "DIGITAL STABILIZATION OFF" << std::endl;
-        }
         else
-        {
             protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Stabilizer_On, g_outputData, g_outputDataSize, 1);
-            stabilizationFlag = true;
-            std::cout << "DIGITAL STABILIZATION ON" << std::endl;
-        }
+        g_digitalStabilizationFlag = !g_digitalStabilizationFlag;
         g_outputDataMutex.unlock();
     }
     break;
 
-    case 52:// 4 - Zoom tele/stop.
+    case 52:// 4 - Auto/Manual focus.
     {
         // Encode command.
         g_outputDataMutex.lock();
-        if (!zoomTeleFlag)
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Tele, g_outputData, g_outputDataSize, 1);
-            zoomTeleFlag = true;
-            std::cout << "ZOOM TELE" << std::endl;
-        }
-        else
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Stop, g_outputData, g_outputDataSize, 1);
-            zoomTeleFlag = false;
-            std::cout << "ZOOM STOP" << std::endl;
-        }
-        g_outputDataMutex.unlock();
-    }
-    break;
-
-    case 53:// 5 - Zoom wide/stop.
-    {
-        // Encode command.
-        g_outputDataMutex.lock();
-        if (!zoomWideFlag)
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Wide, g_outputData, g_outputDataSize, 1);
-            zoomWideFlag = true;
-            std::cout << "ZOOM WIDE" << std::endl;
-        }
-        else
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Stop, g_outputData, g_outputDataSize, 1);
-            zoomWideFlag = false;
-            std::cout << "ZOOM STOP" << std::endl;
-        }
-        g_outputDataMutex.unlock();
-    }
-    break;
-
-    case 54:// 6 - Focus far/stop.
-    {
-        // Encode command.
-        g_outputDataMutex.lock();
-        if (!focusFarFlag)
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Far, g_outputData, g_outputDataSize, 1);
-            focusFarFlag = true;
-            std::cout << "FOCUS FAR" << std::endl;
-        }
-        else
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Stop, g_outputData, g_outputDataSize, 1);
-            focusFarFlag = false;
-            std::cout << "FOCUS STOP" << std::endl;
-        }
-        g_outputDataMutex.unlock();
-    }
-    break;
-
-    case 55:// 7 - Set focus direct position according to trackbar.
-    {
-        // Encode command.
-        g_outputDataMutex.lock();
-        if (!focusNearFlag)
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Near, g_outputData, g_outputDataSize, 1);
-            focusNearFlag = true;
-            std::cout << "FOCUS NEAR" << std::endl;
-        }
-        else
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Stop, g_outputData, g_outputDataSize, 1);
-            focusNearFlag = false;
-            std::cout << "FOCUS STOP" << std::endl;
-        }
-        g_outputDataMutex.unlock();
-    }
-    break;
-
-    case 56:// 8 - Continious zoom pos reply ON.
-    {
-        // Encode command.
-        g_outputDataMutex.lock();
-        protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_ContinuousZoomPosReply_On, g_outputData, g_outputDataSize, 1);
-        std::cout << "CONTINIOUS ZOOM POS REPLY ON" << std::endl;
-        g_outputDataMutex.unlock();
-    }
-    break;
-
-    case 57:// 9 - Auto/Manual focus mode.
-    {
-        // Encode command.
-        g_outputDataMutex.lock();
-        if (manualFocusFlag)
-        {
-            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Auto_Focus_On, g_outputData, g_outputDataSize, 1);
-            manualFocusFlag = false;
-            std::cout << "AUTO FOCUS ON" << std::endl;
-        }
-        else
-        {
+        if (g_autoFocusModeFlag)
             protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Manual_Focus_On, g_outputData, g_outputDataSize, 1);
-            manualFocusFlag = true;
-            std::cout << "MANUAL FOCUS ON" << std::endl;
-        }
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Auto_Focus_On, g_outputData, g_outputDataSize, 1);
+        g_autoFocusModeFlag = !g_autoFocusModeFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 53:// 5 - Auto/Manual exposure.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_autoExposureModeFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_AE_Manual, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_AE_Full_Auto, g_outputData, g_outputDataSize, 1);
+        g_autoExposureModeFlag = !g_autoExposureModeFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 54:// 6 - Defog ON/OFF.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_defogModeFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Defog_Off, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Defog_On, g_outputData, g_outputDataSize, 1);
+        g_defogModeFlag = !g_defogModeFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 55:// 7 - Zoom tele/stop.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_zoomTeleFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Stop, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Tele, g_outputData, g_outputDataSize, 1);
+        g_zoomTeleFlag = !g_zoomTeleFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 56:// 8 - Zoom wide/stop.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_zoomWideFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Stop, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Zoom_Wide, g_outputData, g_outputDataSize, 1);
+        g_zoomWideFlag = !g_zoomWideFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 57:// 9 - Focus far/stop.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_focusFarFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Stop, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Far, g_outputData, g_outputDataSize, 1);
+        g_focusFarFlag = !g_focusFarFlag;
+        g_outputDataMutex.unlock();
+    }
+    break;
+
+    case 0:// 0 - Focus near/stop.
+    {
+        // Encode command.
+        g_outputDataMutex.lock();
+        if (g_focusNearFlag)
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Stop, g_outputData, g_outputDataSize, 1);
+        else
+            protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_Focus_Near, g_outputData, g_outputDataSize, 1);
+        g_focusNearFlag = !g_focusNearFlag;
         g_outputDataMutex.unlock();
     }
     break;
