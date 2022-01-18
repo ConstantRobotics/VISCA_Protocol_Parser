@@ -27,7 +27,7 @@ endif()
 ###############################################################################
 # API class
 SET(${PARENT}_VISCA_PROTOCOL_PARSER             ON CACHE BOOL "" ${REWRITE_FORCE})
-SET(${PARENT}_VISCA_PROTOCOL_PARSER_TESTS       ON CACHE BOOL "" ${REWRITE_FORCE})
+SET(${PARENT}_VISCA_PROTOCOL_PARSER_TESTS       OFF CACHE BOOL "" ${REWRITE_FORCE})
 
 
 ## add projects
