@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.5)
 ## PROJECT
 ## name and version
 ##
-project(ViscaProtocolParser VERSION 2.0.0 LANGUAGES CXX)
+project(ViscaProtocolParser VERSION 1.0.0 LANGUAGES CXX)
 
 
 ##
