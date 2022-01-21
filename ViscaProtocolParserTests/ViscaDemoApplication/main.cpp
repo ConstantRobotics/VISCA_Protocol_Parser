@@ -353,6 +353,7 @@ void sendInitialCommands()
     // Set zoom separate mode.
     protocolParser.encodeCommand(cr::visca::ViscaPackets::COMMAND_CAM_DZoom_Separate_Mode,
                                  serialData, dataSize, g_cameraAddress);
+    g_serialPort.SendData(serialData, dataSize);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Set OFF continious focus position reply mode.
