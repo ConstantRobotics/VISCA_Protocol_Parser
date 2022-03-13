@@ -1,5 +1,6 @@
 #include "ViscaProtocolParser.h"
 #include "ViscaProtocolParserVersion.h"
+#include <string.h>
 
 
 cr::visca::ViscaProtocolParser::ViscaProtocolParser() :
